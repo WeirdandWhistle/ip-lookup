@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "main.h"
 
 int main(int argc, char* argv[]){
     printf("Program stated with PID %d.\n", getpid());

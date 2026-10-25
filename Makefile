@@ -5,19 +5,23 @@ CFLAGS=-Wall -Wextra
 CFILES=$(shell (find -name '*.c'))
 OFILES=$(subst .c,.o,$(CFILES))
 
-$(TARGET): sqlite3.c mongoose.c $(OFILES) 
+$(TARGET): sqlite3.o mongoose.o $(OFILES) 
 	$(CC) $(CFLAGS) -o $(TARGET) $(OFILES)
 
+
+# sqlite3.o : pull-deps
+# 	$(CC) $(CFLAGS) -c -o sqlite3.o sqlite3.c
+# mongoose.o : pull-deps
+# 	$(CC) $(CFLAGS) -c -o mongoose.o mongoose.c
+
 sqlite3.c : pull-deps
-	$(CC) $(CFLAGS) -c -o sqlite3.o sqlite3.c
 mongoose.c : pull-deps
-	$(CC) $(CFLAGS) -c -o mongoose.o mongoose.c
 
 .c :
-	$(shell echo '.c!')
+	$(shell (echo '.c!'))
 
 .o : 
-	$(shell echo '.o!')
+	$(shell (echo '.o!'))
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 pull-deps:
