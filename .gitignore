@@ -3,4 +3,5 @@ main
 *.sqlite
 *.csv
 sqlite3*
+mongoose*
 *.db

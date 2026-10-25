@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 #include "sqlite3.h"
+#include "main.h"
 
 // must be null terminated!
 long ip_to_long(char* arr){
@@ -20,12 +21,12 @@ long ip_to_long(char* arr){
     return ip;
 }
 
-int main(){
+int build_db(){
     sqlite3* db;
     // char* zErrorMsg = 0;
     int rc;
 
-    rc = sqlite3_open("database-speed-test.db", &db);
+    rc = sqlite3_open(DATABASE_FILE, &db);
     if(rc){
         printf("Cant open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
@@ -35,7 +36,7 @@ int main(){
     
     // initlize table
     sqlite3_stmt* createTable;
-    static char createTableSQL[] = "CREATE TABLE IF NOT EXISTS ip (ip_start INT, ip_end INT, continent TEXT, country TEXT, state TEXT, city TEXT, latitude FLOAT, longitude FLOAT);";
+    static char createTableSQL[] = "CREATE TABLE IF NOT EXISTS ip (ip_start INT, ip_end INT, country TEXT, state TEXT, city TEXT, latitude FLOAT, longitude FLOAT);";
     rc = sqlite3_prepare_v2(db, createTableSQL, sizeof(createTableSQL) / sizeof(char), &createTable, NULL);
     if(rc){
         printf("could not prepare the table SQL: %s\n", sqlite3_errmsg(db));
@@ -53,7 +54,7 @@ int main(){
     sqlite3_finalize(createTable);
 
     sqlite3_stmt* csv_insert;
-    static char csv_insert_SQL[] = "INSERT INTO ip (ip_start, ip_end, continent, country, state, city, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+    static char csv_insert_SQL[] = "INSERT INTO ip (ip_start, ip_end, country, state, city, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?);";
     rc = sqlite3_prepare_v2(db, csv_insert_SQL, sizeof(csv_insert_SQL), &csv_insert, NULL);
     if(rc){
         printf("could not prepare the insert SQL: %s\n", sqlite3_errmsg(db));
@@ -128,13 +129,13 @@ int main(){
         rc = sqlite3_bind_int64(csv_insert, 1, ip_start); if(rc != SQLITE_OK) goto clean_up_and_report_error;
         rc = sqlite3_bind_int64(csv_insert, 2, ip_end); if(rc != SQLITE_OK) goto clean_up_and_report_error;
 
+        // rc = sqlite3_bind_text(csv_insert, 3, continent, continent_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
         rc = sqlite3_bind_text(csv_insert, 3, continent, continent_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
         rc = sqlite3_bind_text(csv_insert, 4, country, country_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
-        rc = sqlite3_bind_text(csv_insert, 5, state, state_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
-        rc = sqlite3_bind_text(csv_insert, 6, city, city_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
+        rc = sqlite3_bind_text(csv_insert, 5, city, city_len, NULL); if(rc != SQLITE_OK) goto clean_up_and_report_error;
 
-        rc = sqlite3_bind_double(csv_insert, 7, latitude); if(rc != SQLITE_OK) goto clean_up_and_report_error;
-        rc = sqlite3_bind_double(csv_insert, 8, longitude); if(rc != SQLITE_OK) goto clean_up_and_report_error;
+        rc = sqlite3_bind_double(csv_insert, 6, latitude); if(rc != SQLITE_OK) goto clean_up_and_report_error;
+        rc = sqlite3_bind_double(csv_insert, 7, longitude); if(rc != SQLITE_OK) goto clean_up_and_report_error;
 
         rc = sqlite3_step(csv_insert);
         if(rc != SQLITE_DONE){
@@ -157,6 +158,8 @@ int main(){
     sqlite3_finalize(csv_insert);
 
     sqlite3_exec(db, "COMMIT;", 0, 0, 0);
+    sqlite3_exec(db, "CREATE INDEX ip_idx ON ip (ip_start, ip_end);", 0, 0, 0);
+    sqlite3_exec(db, "PRAGMA synchronous = NORMAL;", 0, 0, 0);
 
     sqlite3_close(db);
     return 0;
