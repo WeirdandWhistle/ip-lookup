@@ -1,0 +1,6 @@
+*.o
+main
+*.sqlite
+*.csv
+sqlite3*
+*.db
