@@ -71,17 +71,42 @@ double get_time_ms(){
 static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
     struct mg_str caps[2];
     int rc = 0;
+    int has_ip_str = 0;
+    struct mg_str ip_str = {0};
+    struct mg_str json;
+    json.len = 1024;
+    json.buf = malloc(json.len);
     if(mg_match(hm->uri, mg_str("/ip/*"), caps)){
-        struct mg_str json;
-        json.len = 1024;
-        json.buf = malloc(json.len);
+        
         if(json.buf == NULL){
             printf("Malloc failed for setting a string buffer.\n");
             mg_http_reply(c, 500, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Malloc failed.\"}");
             return;
         }
+        ip_str = caps[0];
+        has_ip_str = 1;      
+    } else if(mg_match(hm->uri, mg_str("/ip"), NULL)){
+        int found_cf_ip = 0;
+        for(size_t i = 0; i < (sizeof(hm->headers) / sizeof(struct mg_http_header)); i++){
+            if(mg_match(hm->headers[i].name, mg_str("CF-Connecting-IP"), NULL)){
+                found_cf_ip = 1;
+                ip_str = hm->headers[i].value;
+                break;
+            }
+        }
+        if(!found_cf_ip){
+            char gen_ip[18] = {0};
+            mg_snprintf(gen_ip, sizeof(gen_ip), "%d.%d.%d.%d", c->rem.addr.ip[0], c->rem.addr.ip[1], c->rem.addr.ip[2], c->rem.addr.ip[3]);
+            ip_str = mg_str(gen_ip);
+            has_ip_str = 1;
+        }
+    }
+
+    if(has_ip_str){
+        ip_str.buf[ip_str.len] = 0;
+        printf("%s\n", ip_str.buf);
         // double start_ts = get_time_ms();
-        rc = lookup_ip_json(caps[0], &json);
+        rc = lookup_ip_json(ip_str, &json);
         // printf("cost: %f\n", get_time_ms() - start_ts);
 
         if(rc){
@@ -108,12 +133,10 @@ static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* h
         }
 
         mg_http_reply(c, 200, GLOBAL_HEADERS CACHE_CONTROL, "{\"ok\":true,\"data\":%s}", json.buf);
-
-        free(json.buf);
-        return;
+    } else {
+        mg_http_reply(c, 404, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Not Found.\"}");
     }
-
-    mg_http_reply(c, 404, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Not Found.\"}");
+    free(json.buf);    
 }
 static int lookup_ip_json(struct mg_str ip, struct mg_str* json){
     int return_code = 0;
