@@ -4,6 +4,7 @@
 #include "mongoose.h"
 #include "buildDB.h"
 #include "main.h"
+#include <time.h>
 
 static void ev_handler(struct mg_connection* c, int ev, void *ev_data);
 static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm);
@@ -25,7 +26,7 @@ int http_server_init(){
         return 1;
     }
 
-    static char query_ip_SQL[] = "SELECT country, state, city, latitude, longitude FROM ip WHERE ? BETWEEN ip_start AND ip_end LIMIT 1;";
+    static char query_ip_SQL[] = "SELECT country, state, city, latitude, longitude FROM ip WHERE ip_start <= ? AND ? <= ip_end ORDER BY ip_start DESC LIMIT 1;";
     rc = sqlite3_prepare_v2(db, query_ip_SQL, sizeof(query_ip_SQL), &query_ip_stmt, NULL);
     if(rc){
         printf("Failed to prepare the SQL statement that searches IP's: %s\n", sqlite3_errmsg(db));
@@ -62,6 +63,11 @@ static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
         }
     }
 }
+double get_time_ms(){
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (ts.tv_sec * 1000.0) + (ts.tv_nsec / 1000000.0);
+}
 static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
     struct mg_str caps[2];
     int rc = 0;
@@ -74,15 +80,17 @@ static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* h
             mg_http_reply(c, 500, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Malloc failed.\"}");
             return;
         }
-
+        // double start_ts = get_time_ms();
         rc = lookup_ip_json(caps[0], &json);
+        // printf("cost: %f\n", get_time_ms() - start_ts);
+
         if(rc){
             switch(rc){
                 case 500:
                     mg_snprintf(json.buf, json.len, "SQLite debug error: %d.", sqlite3_errmsg(db));
                     break;
-                case 204:
-                    mg_snprintf(json.buf, json.len, "Request proccess but no data was found...");
+                case 424:
+                    mg_snprintf(json.buf, json.len, "Request proccess but no data was found... SQlite failed me.");
                     break;
                 case 400:
                     mg_snprintf(json.buf, json.len, "Malformed IP address.");
@@ -131,11 +139,17 @@ static int lookup_ip_json(struct mg_str ip, struct mg_str* json){
         return_code = 500;
         goto cleanup;
     }
+    rc = sqlite3_bind_int64(query_ip_stmt, 2, ip_num);
+    if(rc != SQLITE_OK){
+        printf("SQLite binding to searching ip failed: %s\n", sqlite3_errmsg(db));
+        return_code = 500;
+        goto cleanup;
+    }
 
     rc = sqlite3_step(query_ip_stmt);
     if(rc != SQLITE_ROW){
         if(rc == SQLITE_DONE){
-            return_code = 204;
+            return_code = 424;
             goto cleanup;
         }
         printf("SQLite steping did not return a row on the first run (it should): %s\n", sqlite3_errmsg(db));

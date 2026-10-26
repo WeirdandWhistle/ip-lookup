@@ -1,6 +1,6 @@
 TARGET=main
 CC=gcc
-CFLAGS=-Wall -Wextra
+CFLAGS=-Wall -Wextra -O3
 
 CFILES=$(shell (find -name '*.c'))
 OFILES=$(subst .c,.o,$(CFILES))
