@@ -4,22 +4,7 @@
 #include <string.h>
 #include "sqlite3.h"
 #include "main.h"
-
-// must be null terminated!
-long ip_to_long(char* arr){
-    // Source - https://stackoverflow.com/a/1684635
-    // Posted by Liran Orevi, modified by community. See post 'Timeline' for change history
-    // Retrieved 2026-10-24, License - CC BY-SA 2.5
-
-    //No checking of the input    
-    unsigned int c1,c2,c3,c4;
-    int rc = sscanf(arr, "%u.%u.%u.%u",&c1,&c2,&c3,&c4);
-    // must match all four to be valid
-    if(rc != 4) return -1;
-
-    unsigned long ip = (unsigned long) (c1 << 24) | (c2 << 16) | (c3 << 8) | (c4);
-    return ip;
-}
+#include "ip_helper.h"
 
 int build_db(){
     sqlite3* db;
@@ -160,6 +145,7 @@ int build_db(){
     sqlite3_exec(db, "COMMIT;", 0, 0, 0);
     sqlite3_exec(db, "CREATE INDEX ip_idx ON ip (ip_start, ip_end);", 0, 0, 0);
     sqlite3_exec(db, "PRAGMA synchronous = NORMAL;", 0, 0, 0);
+    sqlite3_exec(db, "ANALYZE;", 0, 0, 0);
 
     sqlite3_close(db);
     return 0;

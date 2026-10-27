@@ -7,6 +7,7 @@
 
 int main(int argc, char* argv[]){
     printf("Program stated with PID %d.\n", getpid());
+    printf("size; float %d, double %d.\n", sizeof(float), sizeof(double));
     if(argc < 2){
         printf("No argument specifed.\n");
         return 1;

@@ -4,12 +4,14 @@
 #include "mongoose.h"
 #include "buildDB.h"
 #include "main.h"
+#include "ip_helper.h"
+#include "api_log.h"
 #include <time.h>
 
 static void ev_handler(struct mg_connection* c, int ev, void *ev_data);
-static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm);
+int handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm);
 
-static int lookup_ip_json(struct mg_str ip, struct mg_str* json);
+int lookup_ip_json(struct mg_str ip, struct mg_str* json);
 static void signal_handler(int sig);
 
 sqlite3* db;
@@ -52,23 +54,22 @@ int http_server_init(){
 
 static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
     if(ev == MG_EV_HTTP_MSG){
+        int rc = -1;
         struct mg_http_message* hm = (struct mg_http_message*) ev_data;
-        if(mg_match(hm->uri, mg_str("/api/hello"), NULL)){
-            mg_http_reply(c, 200, "", "{%m:%d}", MG_ESC("status"), 1);
-        } else if(mg_match(hm->uri, mg_str("/ip#"), NULL)){
-            handler_ip_lookup(c, hm);
+        clock_t start_time = clock();
+        if(mg_match(hm->uri, mg_str("/ip#"), NULL)){
+            rc = handler_ip_lookup(c, hm);
         } else {
             struct mg_http_serve_opts opts = {.root_dir = ".", .fs = &mg_fs_posix};
             mg_http_serve_dir(c, hm, &opts);
         }
+        if(rc != -1){
+            double response_time = (clock() - start_time) / (CLOCKS_PER_SEC / 1000.0);
+            log_connection(rc, response_time, c, hm);
+        }
     }
 }
-double get_time_ms(){
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (ts.tv_sec * 1000.0) + (ts.tv_nsec / 1000000.0);
-}
-static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
+int handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
     struct mg_str caps[2];
     int rc = 0;
     int has_ip_str = 0;
@@ -81,7 +82,7 @@ static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* h
         if(json.buf == NULL){
             printf("Malloc failed for setting a string buffer.\n");
             mg_http_reply(c, 500, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Malloc failed.\"}");
-            return;
+            return 500;
         }
         ip_str = caps[0];
         has_ip_str = 1;      
@@ -103,19 +104,14 @@ static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* h
     }
 
     if(has_ip_str){
-        ip_str.buf[ip_str.len] = 0;
-        printf("%s\n", ip_str.buf);
         // double start_ts = get_time_ms();
         rc = lookup_ip_json(ip_str, &json);
         // printf("cost: %f\n", get_time_ms() - start_ts);
 
-        if(rc){
+        if(rc > 299){
             switch(rc){
                 case 500:
                     mg_snprintf(json.buf, json.len, "SQLite debug error: %d.", sqlite3_errmsg(db));
-                    break;
-                case 424:
-                    mg_snprintf(json.buf, json.len, "Request proccess but no data was found... SQlite failed me.");
                     break;
                 case 400:
                     mg_snprintf(json.buf, json.len, "Malformed IP address.");
@@ -124,22 +120,21 @@ static void handler_ip_lookup(struct mg_connection* c, struct mg_http_message* h
                     mg_snprintf(json.buf, json.len, "How did you even manage...");
                     break;
             }
-            
-
 
             mg_http_reply(c, rc, GLOBAL_HEADERS, "{\"ok\":false,\"error\":%m}", MG_ESC(json.buf));
             free(json.buf);
-            return;
+            return rc;
         }
 
-        mg_http_reply(c, 200, GLOBAL_HEADERS CACHE_CONTROL, "{\"ok\":true,\"data\":%s}", json.buf);
+        mg_http_reply(c, rc, GLOBAL_HEADERS CACHE_CONTROL, "{\"ok\":true,\"data\":%s}", json.buf);
     } else {
         mg_http_reply(c, 404, GLOBAL_HEADERS, "{\"ok\":false,\"error\":\"Not Found.\"}");
     }
-    free(json.buf);    
+    free(json.buf);
+    return rc;
 }
-static int lookup_ip_json(struct mg_str ip, struct mg_str* json){
-    int return_code = 0;
+int lookup_ip_json(struct mg_str ip, struct mg_str* json){
+    int return_code = 200;
     int ip_null_len = ip.len+1;
     char* ip_null = malloc(ip_null_len);
     if(ip_null == NULL){
@@ -172,11 +167,12 @@ static int lookup_ip_json(struct mg_str ip, struct mg_str* json){
     rc = sqlite3_step(query_ip_stmt);
     if(rc != SQLITE_ROW){
         if(rc == SQLITE_DONE){
-            return_code = 424;
+            return_code = 206;
+            mg_snprintf(json->buf, json->len, "{\"ip\":%m,\"country\":null,\"state\":null,\"city\":null,\"latitude\":0.0,\"longitude\":0.0}", MG_ESC(ip_null));
             goto cleanup;
         }
         printf("SQLite steping did not return a row on the first run (it should): %s\n", sqlite3_errmsg(db));
-        return_code = 1;
+        return_code = 500;
         goto cleanup;
     }
 
