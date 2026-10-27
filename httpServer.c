@@ -28,7 +28,7 @@ int http_server_init(){
         return 1;
     }
 
-    static char query_ip_SQL[] = "SELECT country, state, city, latitude, longitude FROM ip WHERE ip_start <= ? AND ? <= ip_end ORDER BY ip_start DESC LIMIT 1;";
+    static char query_ip_SQL[] = "SELECT country, state, city, latitude, longitude FROM ip WHERE ip_start <= ? ORDER BY ip_start DESC LIMIT 1;";
     rc = sqlite3_prepare_v2(db, query_ip_SQL, sizeof(query_ip_SQL), &query_ip_stmt, NULL);
     if(rc){
         printf("Failed to prepare the SQL statement that searches IP's: %s\n", sqlite3_errmsg(db));
@@ -157,12 +157,12 @@ int lookup_ip_json(struct mg_str ip, struct mg_str* json){
         return_code = 500;
         goto cleanup;
     }
-    rc = sqlite3_bind_int64(query_ip_stmt, 2, ip_num);
-    if(rc != SQLITE_OK){
-        printf("SQLite binding to searching ip failed: %s\n", sqlite3_errmsg(db));
-        return_code = 500;
-        goto cleanup;
-    }
+    // rc = sqlite3_bind_int64(query_ip_stmt, 2, ip_num);
+    // if(rc != SQLITE_OK){
+    //     printf("SQLite binding to searching ip failed: %s\n", sqlite3_errmsg(db));
+    //     return_code = 500;
+    //     goto cleanup;
+    // }
 
     rc = sqlite3_step(query_ip_stmt);
     if(rc != SQLITE_ROW){
