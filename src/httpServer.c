@@ -65,7 +65,6 @@ static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
         }
         if(rc != -1){
             double response_time = (clock() - start_time) / ((double)(CLOCKS_PER_SEC) / 1000.0);
-            printf("Resposne time: %f\n", response_time);
             log_connection(rc, response_time, c, hm);
         }
     }

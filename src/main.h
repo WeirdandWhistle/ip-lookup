@@ -10,6 +10,7 @@
 #define SERVER "Server: whynojava RPI w2 zero\r\n"
 #define GLOBAL_HEADERS SERVER CORS CONTENT_JSON 
 
-#define CACHE_CONTROL "Cache-Control:public, max-age=3600\r\n"
+// #define CACHE_CONTROL "Cache-Control:public, max-age=3600\r\n"
+#define CACHE_CONTROL "Cache-Control:none, max-age=0\r\n"
 
 #endif
