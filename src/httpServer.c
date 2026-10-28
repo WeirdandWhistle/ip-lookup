@@ -60,7 +60,7 @@ static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
         if(mg_match(hm->uri, mg_str("/ip#"), NULL)){
             rc = handler_ip_lookup(c, hm);
         } else {
-            struct mg_http_serve_opts opts = {.root_dir = ".", .fs = &mg_fs_posix};
+            struct mg_http_serve_opts opts = {.root_dir = "./public", .fs = &mg_fs_posix};
             mg_http_serve_dir(c, hm, &opts);
         }
         if(rc != -1){
