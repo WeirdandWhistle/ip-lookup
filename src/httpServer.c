@@ -78,6 +78,7 @@ int handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
     struct mg_str json;
     json.len = 1024;
     json.buf = malloc(json.len);
+    char gen_ip[18] = {0};
     if(mg_match(hm->uri, mg_str("/ip/*"), caps)){
         
         if(json.buf == NULL){
@@ -93,7 +94,7 @@ int handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
             ip_str = *cf_ip_val;
             has_ip_str = 1;
         } else {
-            char gen_ip[18] = {0};
+            
             mg_snprintf(gen_ip, sizeof(gen_ip), "%d.%d.%d.%d", c->rem.addr.ip[0], c->rem.addr.ip[1], c->rem.addr.ip[2], c->rem.addr.ip[3]);
             ip_str = mg_str(gen_ip);
             has_ip_str = 1;
