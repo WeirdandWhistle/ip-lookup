@@ -19,40 +19,42 @@ void log_connection(int rc, double response_time, struct mg_connection* c, struc
     char* referer = NULL;
     int referer_len = 0;
     
-    for(size_t i = 0; i < (sizeof(hm->headers) / sizeof(struct mg_http_header)); i++){
-        if(CF_ON){
-            if(mg_match(hm->headers[i].name, mg_str("CF-Connecting-IP"), NULL)){
-                struct mg_str s = hm->headers[i].value; 
-                for(size_t j = 0; j < s.len; j++){
-                    ip[j] = s.buf[j];
-                }
-            }
-        }
-        if(mg_strcasecmp(hm->headers[i].name, mg_str("User-Agent")) == 0){
-            user_agent_len = hm->headers[i].value.len;
-            if(user_agent_len > max_user_agent_length) user_agent_len = max_user_agent_length;
-            user_agent = malloc(user_agent_len+1);
-            if(user_agent == NULL) goto end_user_agent_block;
-            
-            memcpy(user_agent, hm->headers[i].value.buf, user_agent_len);
+    struct mg_str* user_agent_str =  mg_http_get_header(hm, "User-Agent");
+    if(user_agent_str != NULL){
+        user_agent_len = user_agent_str->len;
+        if(user_agent_len > max_user_agent_length) user_agent_len = max_user_agent_length;
+        user_agent = malloc(user_agent_len+1);
+        if(user_agent != NULL){
+            memcpy(user_agent, user_agent_str->buf, user_agent_len);
             user_agent[user_agent_len] = 0;
-            end_user_agent_block:
-        } else if(mg_strcasecmp(hm->headers[i].name, mg_str("Referer")) == 0){
-            referer_len = hm->headers[i].value.len;
-            if(referer_len > max_referer_length) referer_len = max_referer_length;
-            user_agent = malloc(referer_len+1);
-            if(referer == NULL) goto end_referer_block;
-            
-            memcpy(referer, hm->headers[i].value.buf, referer_len);
+        }
+    }
+    
+    
+    struct mg_str* referer_str =  mg_http_get_header(hm, "Referer");
+    if(referer_str != NULL){
+        referer_len = referer_str->len;
+        if(referer_len > max_referer_length) referer_len = max_referer_length;
+        referer = malloc(referer_len+1);
+        if(referer != NULL){
+            memcpy(referer, referer_str->buf, referer_len);
             user_agent[referer_len] = 0;
-            end_referer_block:
         }
     }
     // printf("No CF-IP found for logging... using null\n");
     // strcpy(ip, "null");
-    if(!CF_ON) {
+    #ifdef CF_ON
+        struct mg_str* s = mg_http_get_header(hm, "CF-Connecting-IP");
+        if(s != NULL){
+            int cp_len = s->len > (sizeof(ip)-1) ? sizeof(ip) - 1 : s->len;
+            memcpy(ip, s->buf, cp_len);
+        } else {
+            connection_to_ip_str(c, ip);
+        }
+    #else
+        // printf("Not logging via cloudflare!\n");
         connection_to_ip_str(c, ip);
-    }
+    #endif
 
     int path_len = hm->uri.len;
     char* path = malloc(path_len);    
@@ -66,7 +68,7 @@ void log_connection(int rc, double response_time, struct mg_connection* c, struc
     long timestamp = time(NULL);
 
     FILE* file = fopen(API_LOG_FILE, "a");
-    
+     
     //  ip,response_time,response_code,path,timestamp(unix),user_agent
     fprintf(file, "%s,%f,%d,%s,%ld,%s,%s,\n", ip, response_time, rc, path, timestamp, user_agent == NULL ? "" : user_agent, referer == NULL ? "" : referer);
 

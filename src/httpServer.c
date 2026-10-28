@@ -64,7 +64,8 @@ static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
             mg_http_serve_dir(c, hm, &opts);
         }
         if(rc != -1){
-            double response_time = (clock() - start_time) / (CLOCKS_PER_SEC / 1000.0);
+            double response_time = (clock() - start_time) / ((double)(CLOCKS_PER_SEC) / 1000.0);
+            printf("Resposne time: %f\n", response_time);
             log_connection(rc, response_time, c, hm);
         }
     }
@@ -87,15 +88,11 @@ int handler_ip_lookup(struct mg_connection* c, struct mg_http_message* hm){
         ip_str = caps[0];
         has_ip_str = 1;      
     } else if(mg_match(hm->uri, mg_str("/ip"), NULL)){
-        int found_cf_ip = 0;
-        for(size_t i = 0; i < (sizeof(hm->headers) / sizeof(struct mg_http_header)); i++){
-            if(mg_match(hm->headers[i].name, mg_str("CF-Connecting-IP"), NULL)){
-                found_cf_ip = 1;
-                ip_str = hm->headers[i].value;
-                break;
-            }
-        }
-        if(!found_cf_ip){
+        struct mg_str* cf_ip_val = mg_http_get_header(hm, "CF-Connecting-IP");
+        if(cf_ip_val != NULL){
+            ip_str = *cf_ip_val;
+            has_ip_str = 1;
+        } else {
             char gen_ip[18] = {0};
             mg_snprintf(gen_ip, sizeof(gen_ip), "%d.%d.%d.%d", c->rem.addr.ip[0], c->rem.addr.ip[1], c->rem.addr.ip[2], c->rem.addr.ip[3]);
             ip_str = mg_str(gen_ip);
