@@ -1,0 +1,55 @@
+<h3>Endpoints</h3>
+<a href="/ip">/ip</a> gives you you ip and location.<br>
+<a id="fill-ip" href="/ip/0.0.0.0">/ip/{i.p.v.4}</a> gives you the location of the ipv4. <br>
+<hr>
+<h3>Data structures</h3>
+<p>every thing is surrounded by:</p>
+<pre>
+{
+    ok: boolean,
+    error?: string,
+    data?: object,
+}
+</pre>
+
+<p>ok=true defines error</p>
+<p>ok=false defines data</p>
+<br>
+
+<p>all /ip endpoints have data:</p>
+<pre>
+{
+    ip: string,
+    country: string,
+    state: string,
+    city: string,
+    latitude: float,
+    longitude: float,
+}
+</pre>
+<hr>
+<p>Source code can be found in the github repo or in the <a href="/src">/src</a> dir </p>
+<hr>
+<h3>Privacy</h3>
+<a href="https://ip.whynotjava.net">ip.whynotjava.net</a> collects basic logging information. This includes: ip-address, User-Agent, response time, response code, and referer header. This is shared with no one.<br>
+<hr>
+<a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
+<a href="https://github.com/WeirdandWhistle/ip-lookup">Github</a>
+<a href="mailto://me@whynotjava.net">maintenance/support</a>
+<hr>
+
+
+<script>
+    async function main() {
+        const res = await fetch("/ip");
+        const json = await res.json();
+        if(json.ok){
+            const ip = json.data.ip;
+            document.getElementById("fill-ip").href = `/ip/${ip}`;
+        }
+    }
+    main();
+    
+</script>
+
+
