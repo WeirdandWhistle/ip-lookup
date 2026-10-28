@@ -39,7 +39,7 @@ int http_server_init(){
     mg_log_set(MG_LL_DEBUG);
     struct mg_mgr mgr;
     mg_mgr_init(&mgr);
-    mg_http_listen(&mgr, "http://0.0.0.0:8000", ev_handler, NULL);
+    mg_http_listen(&mgr, "http://0.0.0.0:2000", ev_handler, NULL);
     
     for(;;){
         if(close_program_soon) break;
@@ -65,7 +65,6 @@ static void ev_handler(struct mg_connection* c, int ev, void *ev_data){
         }
         if(rc != -1){
             double response_time = (clock() - start_time) / ((double)(CLOCKS_PER_SEC) / 1000.0);
-            printf("Resposne time: %f\n", response_time);
             log_connection(rc, response_time, c, hm);
         }
     }
